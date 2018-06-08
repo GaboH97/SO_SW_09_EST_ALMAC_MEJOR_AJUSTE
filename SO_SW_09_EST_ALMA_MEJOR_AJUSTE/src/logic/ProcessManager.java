@@ -143,37 +143,26 @@ public class ProcessManager {
                 break;
             }
         }
-        if (currentUsedMemory < memory) {
-            Partition par = new Partition(memory - currentUsedMemory);
-            try {
-                partitionsList.add((Partition) par.clone());
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-            currentPartitionList.add(par);
-            currentUsedMemory = memory;
-        }
+
     }
 
     public void processProcesses() {
         assignProcessesInitially();
         for (int i = 0; i < 100; i++) {
             ArrayList<Process> aux = new ArrayList<>();
-            aux = execute(aux);
+            aux = execute2(aux);
             Collections.sort(aux);
             for (Process process : aux) {
                 output_ProcessList.add(process);
                 output_PartitionList.add(searchIntoPartition(process));
             }
         }
-
     }
 
     public Partition searchIntoPartition(Process pro) {
         for (Partition partition : partitionsList) {
             if (partition != null && partition.getPartitionSize() == pro.getProcessSize()) {
                 return partition;
-
             }
         }
         return null;
@@ -188,17 +177,77 @@ public class ProcessManager {
         return true;
     }
 
-    public ArrayList<Process> execute(ArrayList<Process> auxListProcess) {
+    public ArrayList<Process> execute2(ArrayList<Process> auxListProcesses) {
         for (int i = 0; i < currentPartitionList.size(); i++) {
-
             Partition partition = currentPartitionList.get(i);
             Process pro = partition.getAssignedProcess();
             if (pro == null && (i + 1) < currentPartitionList.size() && currentPartitionList.get(i + 1).getAssignedProcess() == null) {
                 condensate(i);
                 continue;
+                //Mira si hay procesos por asignar
             } else if (pro == null && lastAssignedProcessIndex < input_ProcessList.size()) {
+                //Si el proceso a asignar cabe en el hueco actual
+                int remainingMemory = partition.getPartitionSize() - input_ProcessList.get(lastAssignedProcessIndex).getProcessSize();
+
+                //Si cabe en la partición
+                if (remainingMemory >= 0) {
+                    //Particion 1:
+                    //Reemplaza el hueco con una nueva partición
+                    Partition newPar1 = new Partition(input_ProcessList.get(lastAssignedProcessIndex));
+                    //Lo asigna a la posición i si cabe exactamente, si no, en la
+                    //posición i+1
+                    currentPartitionList.set((remainingMemory > 0) ? i : i + 1, newPar1);
+                    try {
+                        partitionsList.add((Partition) newPar1.clone());
+                    } catch (CloneNotSupportedException ex) {
+                        ex.printStackTrace();
+                    }
+                    if (remainingMemory != 0) {
+                        //particion 2
+                        //Crea una nueva partición con o que sobre 
+                        Partition newPar2 = new Partition(remainingMemory);
+                        if (newPar2.getPartitionName().equals("PA12")) {
+                            Partition.BASE_ID--;
+                        }
+                        //Agrega un nuevo hueco
+                        currentPartitionList.add(i + 1, newPar2);
+                        try {
+                            partitionsList.add((Partition) newPar2.clone());
+                        } catch (CloneNotSupportedException ex) {
+                            ex.printStackTrace();
+                        }
+                    }
+                    //Si cabe exactamente en el hueco, crea solo una partición
+                    lastAssignedProcessIndex++;
+                }
+
+                //Si hay un proceso asignado a dicha partición, lo ejecuta
+                //Si luego de ejecutarlo su tiempo de ejecución es menor a cero
+                //enviarlo a la lista de salida temporal
+            } else if (pro != null) {
+                pro.setExecutionTime(pro.getExecutionTime() - quantum);
+                if (pro.getExecutionTime() <= 0) {
+                    auxListProcesses.add(pro);
+                    partition.setAssignedProcess(null);
+                }
+            }
+        }
+        return auxListProcesses;
+    }
+
+    public ArrayList<Process> execute(ArrayList<Process> auxListProcess) {
+        for (int i = 0; i < currentPartitionList.size(); i++) {
+            Partition partition = currentPartitionList.get(i);
+            Process pro = partition.getAssignedProcess();
+            if (pro == null && (i + 1) < currentPartitionList.size() && currentPartitionList.get(i + 1).getAssignedProcess() == null) {
+                condensate(i);
+                continue;
+                //Mira si hay procesos por asignar
+            } else if (pro == null && lastAssignedProcessIndex < input_ProcessList.size()) {
+                //Si el proceso a asignar cabe en el hueco actual
                 if (input_ProcessList.get(lastAssignedProcessIndex).getProcessSize() < partition.getPartitionSize()) {
                     //Particion 1:
+                    //Reemplaza el hueco con una nueva partición
                     Partition newPar1 = new Partition(input_ProcessList.get(lastAssignedProcessIndex));
                     currentPartitionList.set(i, newPar1);
                     try {
@@ -207,11 +256,14 @@ public class ProcessManager {
                         ex.printStackTrace();
                     }
                     //particion 2______________________________________________________________________________________________________________
-                    Partition newPar2 = new Partition(partition.getPartitionSize() - input_ProcessList.get(lastAssignedProcessIndex).getProcessSize());
+                    //Crea una nueva partición con o que sobre 
+                    Partition newPar2 = new Partition(partition.getPartitionSize() - newPar1.getPartitionSize());
                     if (newPar2.getPartitionName().equals("PA12")) {
+                        System.out.println("paso por aquí");
                         Partition.BASE_ID--;
                         newPar2.setPartitionName("destroy");
                     }
+                    //Agrega un nuevo hueco
                     currentPartitionList.add(i + 1, newPar2);
                     try {
                         partitionsList.add((Partition) newPar2.clone());
@@ -219,6 +271,7 @@ public class ProcessManager {
                         ex.printStackTrace();
                     }
                     lastAssignedProcessIndex++;
+                    //Si cabe exactamente en el hueco, crea solo una partición
                 } else if (input_ProcessList.get(lastAssignedProcessIndex).getProcessSize() == partition.getPartitionSize()) {
                     Partition newPar1 = new Partition(input_ProcessList.get(lastAssignedProcessIndex));
                     currentPartitionList.set(i + 1, newPar1);
@@ -228,16 +281,18 @@ public class ProcessManager {
                         ex.printStackTrace();
                     }
                     lastAssignedProcessIndex++;
-                } else {
-                    continue;
                 }
+
+                //Si hay un proceso asignado a dicha partición, lo ejecuta
+                //Si luego de ejecutarlo su tiempo de ejecución es menor a cero
+                //enviarlo a la lista de salida temporal
             } else if (pro != null) {
                 pro.setExecutionTime(pro.getExecutionTime() - quantum);
                 if (pro.getExecutionTime() <= 0) {
                     auxListProcess.add(pro);
                     partition.setAssignedProcess(null);
                 }
-            } 
+            }
         }
         return auxListProcess;
     }
@@ -265,9 +320,20 @@ public class ProcessManager {
         }
     }
 
+    public int getIndexOfPartitionToAssignProcess(int fromIndex, Process process) {
+        for (int i = fromIndex; i < currentPartitionList.size(); i++) {
+            Partition par = currentPartitionList.get(i);
+            if (par.getAssignedProcess() == null && par.getPartitionSize() > process.getProcessSize()) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
     private boolean canCondensate() {
         for (int i = 0; i < currentPartitionList.size() - 1; i++) {
-            if (currentPartitionList.get(i).getAssignedProcess() == null && currentPartitionList.get(i + 1).getAssignedProcess() == null) {
+            if (currentPartitionList.get(i).getAssignedProcess() == null
+                    && currentPartitionList.get(i + 1).getAssignedProcess() == null) {
                 return true;
             }
         }

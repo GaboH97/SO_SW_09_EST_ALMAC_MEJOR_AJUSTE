@@ -2,7 +2,6 @@ package run;
 
 import logic.ProcessManager;
 import controller.Controller;
-import logic.Partition;
 
 /**
  * Clase que ejecuta el programa
@@ -15,7 +14,7 @@ public class Runner {
 
         ProcessManager pm = new ProcessManager();
 
-       pm.addProcess(new logic.Process("p11", 11, 5));
+        pm.addProcess(new logic.Process("p11", 11, 5));
         pm.addProcess(new logic.Process("p15", 15, 7));
         pm.addProcess(new logic.Process("p18", 18, 8));
         pm.addProcess(new logic.Process("p6", 6, 3));
